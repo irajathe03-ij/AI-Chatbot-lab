@@ -36,6 +36,12 @@ const sendMessage = async (req, res) => {
       content: content.trim(),
     });
 
+    // Generate chat title from the first user message
+if (chat.title === "New Chat" || chat.title === "New Conversation") {
+  chat.title = content.trim().slice(0, 40);
+  await chat.save();
+}
+
     // Fetch recent conversation history
     const previousMessages = await Message.find({
       chat: chat._id,
@@ -62,6 +68,16 @@ const sendMessage = async (req, res) => {
     // Update chat activity
     chat.updatedAt = new Date();
     await chat.save();
+
+// Broadcast messages to users in the same chat room
+const io = req.app.get("io");
+
+if (io) {
+  io.to(chat._id.toString()).emit("new-message", {
+    userMessage,
+    aiMessage,
+  });
+}
 
     return res.status(201).json({
       success: true,
